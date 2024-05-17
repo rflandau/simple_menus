@@ -4,27 +4,33 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// a leaf is a command
-// When active, its update and view methods supplant that of its mother model
-// On completion, leaves MUST send a returnMsg
+/**
+ * A leaf is a command
+ * When active, its update, view methods supplant Mother's (the standard model)
+ * On completion, leaves MUST send call mother.Return()
+ */
 type Leaf interface {
 	Name() string
-	Update(m *Model, msg tea.Msg) (*Model, tea.Cmd)
-	View(m *Model) string
+	Update(mother *Model, msg tea.Msg) (*Model, tea.Cmd)
+	View(mother *Model) string
 }
 
-type StatusCmd struct{}
+type StatusCmd struct {
+	dots string // placeholders while waiting for mother's update to take control
+}
 
-func (s StatusCmd) Name() string {
+func (s *StatusCmd) Name() string {
 	return "status"
 }
 
-func (s StatusCmd) Update(m *Model, msg tea.Msg) (*Model, tea.Cmd) {
-	m.Return()
-	return m, tea.Println("Status: All is well")
+func (s *StatusCmd) Update(mother *Model, msg tea.Msg) (*Model, tea.Cmd) {
+	mother.Return()
+	return mother, tea.Println("Status: All is well")
 }
 
-func (s StatusCmd) View(m *Model) string {
+func (s *StatusCmd) View(mother *Model) string {
+	s.dots += "."
+	// this will only be visible momentarily
 	// anything shown here will be overwritten immediately, hence the tea.Println in Update
-	return "Other all is well"
+	return s.dots
 }
