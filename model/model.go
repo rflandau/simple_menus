@@ -52,7 +52,6 @@ func textValidator(s string) error {
 	return nil
 }
 
-// TODO can this be moved into Init()?
 func Initial(logpath string, root *Menu) Model {
 	m := Model{}
 
@@ -234,18 +233,15 @@ func processInput(m *Model) tea.Cmd {
 	if command, ok := m.curMenu.Commands[strings.ToLower(s)]; ok { // command
 		// When a command is issued, set the model's active command
 		// While a command is set, the model will call its Update and View functions
-		// The command must be able to unset itself, which nils out the active
-		// command and returns the model to updating+viewing as normal, based on curMenu
+		// On completion, a command will set m.mode to returning
 
-		// Perhaps the model should never relinquish control, instead acting as
-		//	intermediary and passing input to the active command, which can respond via tea.Printfs?
+		// TODO upgrade Help() to support command context by checking m.activeCommand
 		// Help() can automatically check for an active command and show the command's help field instead.
-		// Many commands will just want to print data
 
-		// I think commands need to take full control of the Update/View and just send back a tea.Return Msg so Update knows to kill the active command
-		// TODO
 		m.log.Printf("Found local command %v\n", command.Name())
 		m.mode = handoff
+		// TODO each time a command is call, it should be instantiated fresh so
+		//	old data does not garble the new call
 		m.activeCommand = command
 		return nil
 	}
