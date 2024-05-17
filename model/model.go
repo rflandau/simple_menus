@@ -23,6 +23,9 @@ const (
 	tiWidth     = 20
 )
 
+// keys that kill the program in Update no matter other states
+var killKeys = [...]tea.KeyType{tea.KeyCtrlC, tea.KeyEsc}
+
 type mode int
 
 const (
@@ -109,6 +112,17 @@ func (m Model) Init() tea.Cmd {
  * be they built-in or local commands */
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	//m.log.Printf("Received message %#v\n", msg)
+
+	// always handle kill keys
+	keyMsg, isKeyMsg := msg.(tea.KeyMsg)
+	if isKeyMsg {
+		for _, v := range killKeys {
+			if keyMsg.Type == v {
+				m.mode = quitting
+				return m, tea.Batch(tea.Quit, tea.Println("Bye"))
+			}
+		}
+	}
 
 	// check if child command is done
 	if m.mode == returning {
