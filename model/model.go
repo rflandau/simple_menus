@@ -1,6 +1,9 @@
 /**
- * Model the Bubble Tea controller, driving Bubble Tea and providing the data
- * representation.
+ * This is the workhorse of the program.
+ * Mother is the Bubble Tea controller, driving Bubble Tea and providing the data
+ * representation. It is the default actor and manages passing control to, and
+ * retaking control from, child commands invoked by the user. It also contains
+ * global data needed to coordinate children and how the program appears.
  *
  */
 package model
@@ -25,15 +28,6 @@ const (
 
 // keys that kill the program in Update no matter other states
 var killKeys = [...]tea.KeyType{tea.KeyCtrlC, tea.KeyEsc}
-
-type mode int
-
-const (
-	prompting mode = iota
-	quitting
-	returning
-	handoff // child command is in control
-)
 
 // the data representation of our front-end
 type Model struct {

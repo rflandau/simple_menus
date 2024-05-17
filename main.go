@@ -14,6 +14,7 @@ package main
 
 import (
 	"simple_menus/model"
+	"simple_menus/model/command"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -54,7 +55,7 @@ func generateTree() *model.Menu {
 
 	// generate system submenu
 	system := model.Menu{Name: "system", Parent: &admin, Submenus: nil, Commands: make(map[string]model.Leaf)}
-	system.Commands["status"] = &model.StatusCmd{} // TODO move into leaf package
+	system.Commands["status"] = &command.StatusCmd{} // TODO move into leaf package
 
 	// attach it to admin
 	admin.Submenus["system"] = system
