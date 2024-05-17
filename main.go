@@ -55,7 +55,7 @@ func generateTree() *model.Menu {
 
 	// generate system submenu
 	system := model.Menu{Name: "system", Parent: &admin, Submenus: nil, Commands: make(map[string]model.Leaf)}
-	system.Commands["status"] = &command.StatusCmd{} // TODO move into leaf package
+	system.Commands["status"] = &command.StatusCmd{}
 
 	// attach it to admin
 	admin.Submenus["system"] = system
