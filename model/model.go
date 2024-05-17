@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"simple_menus/message"
 	"simple_menus/style"
 	"strings"
@@ -22,12 +23,14 @@ import (
 )
 
 const (
-	tiCharLimit = 150
-	tiWidth     = 20
+	tiCharLimit         = 150
+	tiWidth             = 20
+	validationRgxString = `^[a-zA-Z\.]+$` // note the anchor wraps
 )
 
 // keys that kill the program in Update no matter other states
 var killKeys = [...]tea.KeyType{tea.KeyCtrlC, tea.KeyEsc}
+var validationRgx = regexp.MustCompile(validationRgxString)
 
 // the data representation of our front-end
 type Model struct {
@@ -41,11 +44,14 @@ type Model struct {
 	activeCommand Leaf
 }
 
-// TODO ensure text-only
 func textValidator(s string) error {
-	return nil
+	if validationRgx.MatchString(s) {
+		return nil
+	}
+	return fmt.Errorf("input contains non-alphabet inputs")
 }
 
+// TODO allow a stylesheet to be passed in
 func Initial(logpath string, root *Menu) Model {
 	m := Model{}
 
@@ -76,9 +82,12 @@ func Initial(logpath string, root *Menu) Model {
 	// generate a style sheet
 	m.ss.SubmenuText = lipgloss.NewStyle().Foreground(lipgloss.Color("#AAAAFF"))
 	m.ss.CommandText = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFAAAA")).Italic(true)
+	m.ss.ErrorText = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF3333"))
 
+	// TODO remove these debug calls
 	fmt.Println(m.ss.SubmenuText.Render("set submenu text"))
 	fmt.Println(m.ss.CommandText.Render("set command text"))
+	fmt.Println(m.ss.ErrorText.Render("set error text"))
 
 	// enter prompt mode
 	m.mode = prompting
@@ -183,6 +192,13 @@ func (m Model) View() string {
 
 	s := strings.Builder{}
 	s.WriteString(m.curMenu.Name + " " + m.ti.View()) // prompt
+	if m.ti.Err != nil {
+		// write out previous error and clear it
+		s.WriteString("\n")
+		s.WriteString(m.ss.ErrorText.Render(m.ti.Err.Error()))
+		m.ti.Err = nil
+		// this will be cleared from view automagically on next key input
+	}
 	return s.String()
 }
 
@@ -207,12 +223,15 @@ var builtin = map[string]builtinFunc{
  */
 func processInput(m *Model) tea.Cmd {
 	var s string = m.ti.Value()
-	m.ti.Validate(s) // ! currently superfluous
-	m.ti.Reset()     // empty out the input
+	m.ti.Validate(s)
+	if m.ti.Err != nil {
+		return nil
+	}
+	m.ti.Reset() // empty out the input
 	// check for a builtin command
-	bfunc, ok := builtin[s]
+	builtinFunc, ok := builtin[s]
 	if ok {
-		return bfunc(m)
+		return builtinFunc(m)
 	}
 	// if we do not find a built in, test for a submenu
 	m.log.Printf("Parsing for submenus (from: %+v)\n", m.curMenu.Submenus)
