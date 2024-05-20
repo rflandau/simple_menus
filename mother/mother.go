@@ -6,7 +6,7 @@
  * global data needed to coordinate children and how the program appears.
  *
  */
-package model
+package mother
 
 import (
 	"fmt"
@@ -23,14 +23,14 @@ import (
 )
 
 const (
-	tiCharLimit         = 150
-	tiWidth             = 20
-	validationRgxString = `^[a-zA-Z\.]+$` // note the anchor wraps
+	tiCharLimit        = 150
+	tiWidth            = 20
+	tiValidationString = `^[a-zA-Z\.]+$` // note the anchor wraps
 )
 
 // keys that kill the program in Update no matter other states
 var killKeys = [...]tea.KeyType{tea.KeyCtrlC, tea.KeyEsc}
-var validationRgx = regexp.MustCompile(validationRgxString)
+var validationRgx = regexp.MustCompile(tiValidationString)
 
 // the data representation of our front-end
 type Model struct {

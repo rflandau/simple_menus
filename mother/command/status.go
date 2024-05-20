@@ -6,7 +6,7 @@
 package command
 
 import (
-	. "simple_menus/model"
+	. "simple_menus/mother"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

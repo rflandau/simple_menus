@@ -3,7 +3,7 @@
  * It cannot be invoked as it is not a command. However, it may contain commands (leaves).
  * As the command tree is static, menus can lazy-compile `compiled...` fields
  * the first time they are requested. */
-package model
+package mother
 
 import (
 	"simple_menus/style"

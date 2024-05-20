@@ -1,4 +1,4 @@
-package model
+package mother
 
 import (
 	tea "github.com/charmbracelet/bubbletea"

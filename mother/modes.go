@@ -1,7 +1,7 @@
 /**
  * Enumeration of the modes Mother can be in.
  */
-package model
+package mother
 
 import "fmt"
 

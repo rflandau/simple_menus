@@ -13,48 +13,48 @@
 package main
 
 import (
-	"simple_menus/model"
-	"simple_menus/model/command"
+	"simple_menus/mother"
+	"simple_menus/mother/command"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 // the top level command
-var root *model.Menu
+var root *mother.Menu
 
 /**
  * generatetree creates the command and menu tree representing the entire CLI.
  * Returns a pointer to the root node
  */
-func generateTree() *model.Menu {
+func generateTree() *mother.Menu {
 	// generate the root of the tree
-	r := &model.Menu{
+	r := &mother.Menu{
 		Name:     "root",
 		Parent:   nil,
-		Submenus: make(map[string]model.Menu),
-		Commands: make(map[string]model.Leaf),
+		Submenus: make(map[string]mother.Menu),
+		Commands: make(map[string]mother.Leaf),
 	}
 
 	// generate search submenu
-	search := model.Menu{Name: "search", Parent: r, Submenus: nil, Commands: nil}
+	search := mother.Menu{Name: "search", Parent: r, Submenus: nil, Commands: nil}
 	// attach it to root
 	r.Submenus["search"] = search
 
 	// generate admin submenu
-	admin := model.Menu{
+	admin := mother.Menu{
 		Name:     "admin",
 		Parent:   r,
-		Submenus: make(map[string]model.Menu),
-		Commands: make(map[string]model.Leaf),
+		Submenus: make(map[string]mother.Menu),
+		Commands: make(map[string]mother.Leaf),
 	}
 
 	// generate users submenu
-	users := model.Menu{Name: "users", Parent: &admin, Submenus: nil, Commands: nil}
+	users := mother.Menu{Name: "users", Parent: &admin, Submenus: nil, Commands: nil}
 	// attach it to admin
 	admin.Submenus["users"] = users
 
 	// generate system submenu
-	system := model.Menu{Name: "system", Parent: &admin, Submenus: nil, Commands: make(map[string]model.Leaf)}
+	system := mother.Menu{Name: "system", Parent: &admin, Submenus: nil, Commands: make(map[string]mother.Leaf)}
 	system.Commands["status"] = &command.StatusCmd{}
 
 	// attach it to admin
@@ -69,7 +69,7 @@ func init() {
 }
 
 func main() {
-	var p *tea.Program = tea.NewProgram(model.Initial("simple.log", root))
+	var p *tea.Program = tea.NewProgram(mother.Initial("simple.log", root))
 	_, err := p.Run()
 	if err != nil {
 		panic(err)
