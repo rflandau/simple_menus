@@ -11,6 +11,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+var _ Leaf = &StatusCmd{} // compile-time interface fulfillment check
+
 type StatusCmd struct {
 	dots string // placeholders while waiting for mother's update to take control
 }
