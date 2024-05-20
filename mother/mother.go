@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	tiCharLimit        = 150
-	tiWidth            = 20
+	//tiCharLimit        = 150
+	tiWidth            = 40
 	tiValidationString = `^[a-zA-Z\.]+$` // note the anchor wraps
 )
 
@@ -70,9 +70,9 @@ func Initial(logpath string, root *Menu) Model {
 
 	// set up the text input submodel
 	m.ti = textinput.New()
-	m.ti.Placeholder = ""
+	m.ti.Placeholder = "help"
 	m.ti.Focus()
-	m.ti.CharLimit = tiCharLimit
+	//m.ti.CharLimit = tiCharLimit
 	m.ti.Width = tiWidth
 	m.ti.Validate = textValidator
 
@@ -113,7 +113,6 @@ func (m Model) Init() tea.Cmd {
  * Input commands (ex: 'help', 'quit', <command>) are handled in processInput(),
  * be they built-in or local commands */
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	//m.log.Printf("Received message %#v\n", msg)
 
 	// always handle kill keys
 	keyMsg, isKeyMsg := msg.(tea.KeyMsg)
@@ -156,7 +155,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.mode = quitting
 			return m, tea.Batch(tea.Quit, tea.Println("Bye"))
 		}
-		if msg.Type == tea.KeyF1 || msg.Type == tea.KeyDelete { // help
+		if msg.Type == tea.KeyF1 { // help
 			return m, m.curMenu.Children(m.ss)
 		}
 		if msg.Type == tea.KeyEnter { // submit
