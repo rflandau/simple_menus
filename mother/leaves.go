@@ -11,6 +11,6 @@ import (
  */
 type Leaf interface {
 	Name() string
-	Update(mother *Model, msg tea.Msg) (*Model, tea.Cmd)
-	View(mother *Model) string
+	Update(mother *Mother, msg tea.Msg) (*Mother, tea.Cmd)
+	View(mother *Mother) string
 }

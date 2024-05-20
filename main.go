@@ -14,62 +14,60 @@ package main
 
 import (
 	"simple_menus/mother"
-	"simple_menus/mother/command"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/spf13/cobra"
 )
-
-// the top level command
-var root *mother.Menu
 
 /**
  * generatetree creates the command and menu tree representing the entire CLI.
  * Returns a pointer to the root node
  */
-func generateTree() *mother.Menu {
-	// generate the root of the tree
-	r := &mother.Menu{
-		Name:     "root",
-		Parent:   nil,
-		Submenus: make(map[string]mother.Menu),
-		Commands: make(map[string]mother.Leaf),
-	}
+func generateTree() *cobra.Command {
 
-	// generate search submenu
-	search := mother.Menu{Name: "search", Parent: r, Submenus: nil, Commands: nil}
-	// attach it to root
-	r.Submenus["search"] = search
+	r := &cobra.Command{}
 
-	// generate admin submenu
-	admin := mother.Menu{
-		Name:     "admin",
-		Parent:   r,
-		Submenus: make(map[string]mother.Menu),
-		Commands: make(map[string]mother.Leaf),
-	}
+	/*
+		// generate the root of the tree
+		r := &mother.Menu{
+			Name:     "root",
+			Parent:   nil,
+			Submenus: make(map[string]mother.Menu),
+			Commands: make(map[string]mother.Leaf),
+		}
 
-	// generate users submenu
-	users := mother.Menu{Name: "users", Parent: &admin, Submenus: nil, Commands: nil}
-	// attach it to admin
-	admin.Submenus["users"] = users
+		// generate search submenu
+		search := mother.Menu{Name: "search", Parent: r, Submenus: nil, Commands: nil}
+		// attach it to root
+		r.Submenus["search"] = search
 
-	// generate system submenu
-	system := mother.Menu{Name: "system", Parent: &admin, Submenus: nil, Commands: make(map[string]mother.Leaf)}
-	system.Commands["status"] = &command.StatusCmd{}
+		// generate admin submenu
+		admin := mother.Menu{
+			Name:     "admin",
+			Parent:   r,
+			Submenus: make(map[string]mother.Menu),
+			Commands: make(map[string]mother.Leaf),
+		}
 
-	// attach it to admin
-	admin.Submenus["system"] = system
+		// generate users submenu
+		users := mother.Menu{Name: "users", Parent: &admin, Submenus: nil, Commands: nil}
+		// attach it to admin
+		admin.Submenus["users"] = users
 
-	r.Submenus["admin"] = admin
+		// generate system submenu
+		system := mother.Menu{Name: "system", Parent: &admin, Submenus: nil, Commands: make(map[string]mother.Leaf)}
+		system.Commands["status"] = &command.StatusCmd{}
+
+		// attach it to admin
+		admin.Submenus["system"] = system
+
+		r.Submenus["admin"] = admin
+	*/
 	return r
 }
 
-func init() {
-	root = generateTree()
-}
-
 func main() {
-	var p *tea.Program = tea.NewProgram(mother.Initial("simple.log", root))
+	var p *tea.Program = tea.NewProgram(mother.NewMother("simple.log", generateTree(), nil))
 	_, err := p.Run()
 	if err != nil {
 		panic(err)

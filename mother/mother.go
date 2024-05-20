@@ -4,7 +4,7 @@
  * representation. It is the default actor and manages passing control to, and
  * retaking control from, child commands invoked by the user. It also contains
  * global data needed to coordinate children and how the program appears.
- *
+ * Implements Bubble Tea's model interface
  */
 package mother
 
@@ -20,6 +20,8 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -33,16 +35,22 @@ var killKeys = [...]tea.KeyType{tea.KeyCtrlC, tea.KeyEsc}
 var validationRgx = regexp.MustCompile(tiValidationString)
 
 // the data representation of our front-end
-type Model struct {
-	ti            textinput.Model
-	err           error
-	inputErr      error
-	curMenu       *Menu
-	log           *log.Logger
-	mode          mode
-	ss            style.Sheet
-	activeCommand Leaf
+type Mother struct {
+	ti             textinput.Model
+	err            error
+	inputErr       error
+	log            *log.Logger
+	mode           mode
+	ss             style.Sheet
+	activeCommand  *cobra.Command // nil unless mode == handoff
+	builtinActions map[string]func() tea.Cmd
+
+	// Cobra navigation
+	root *cobra.Command // graph root; unchanged after initialization
+	PWD  *cobra.Command // current command node; should always be a menu
 }
+
+var _ tea.Model = Mother{} // compile-time interface check
 
 func textValidator(s string) error {
 	if validationRgx.MatchString(s) {
@@ -51,9 +59,19 @@ func textValidator(s string) error {
 	return fmt.Errorf("input contains non-alphabet inputs")
 }
 
-// TODO allow a stylesheet to be passed in
-func Initial(logpath string, root *Menu) Model {
-	m := Model{}
+/**
+ * NewMother generates and returns a controller satisfying Bubble Tea's model
+ * interface and operating off the given Cobra tree.
+ * @param logpath - path to the file to log to
+ * @param root - root node cobra's command tree
+ * @param pwd - root if nil, otherwise sets starting submenu
+ */
+func NewMother(logpath string, root *cobra.Command, pwd *cobra.Command) Mother {
+	m := Mother{mode: prompting, root: root, PWD: root}
+	if pwd != nil {
+		m.PWD = pwd
+	}
+	// TODO allow a stylesheet to be passed in
 
 	// set up the loggers
 	f, err := os.Create(logpath)
@@ -61,36 +79,36 @@ func Initial(logpath string, root *Menu) Model {
 		panic(err)
 	}
 	m.log = log.New(f, "", 0)
-	// TODO close log files
-	_, err = tea.LogToFile("debug.log", "debug")
+
+	/*_, err = tea.LogToFile("debug.log", "debug")
 	if err != nil {
 		fmt.Println("fatal:", err)
 		os.Exit(1)
-	}
+	}*/
 
 	// set up the text input submodel
 	m.ti = textinput.New()
 	m.ti.Placeholder = "help"
 	m.ti.Focus()
-	//m.ti.CharLimit = tiCharLimit
 	m.ti.Width = tiWidth
 	m.ti.Validate = textValidator
-
-	// start on the root node
-	m.curMenu = root
 
 	// generate a style sheet
 	m.ss.SubmenuText = lipgloss.NewStyle().Foreground(lipgloss.Color("#AAAAFF"))
 	m.ss.CommandText = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFAAAA")).Italic(true)
 	m.ss.ErrorText = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF3333"))
 
-	// TODO remove these debug calls
+	// TODO lock these behind a DEBUG log level
 	fmt.Println(m.ss.SubmenuText.Render("set submenu text"))
 	fmt.Println(m.ss.CommandText.Render("set command text"))
 	fmt.Println(m.ss.ErrorText.Render("set error text"))
 
-	// enter prompt mode
-	m.mode = prompting
+	// generate the list of builtin actions
+	m.builtinActions = map[string](func() tea.Cmd){
+		"..":   m.navParent,
+		"help": m.CmdContextHelp,
+		"quit": m.quit,
+		"exit": m.quit}
 
 	return m
 }
@@ -98,13 +116,13 @@ func Initial(logpath string, root *Menu) Model {
 /**
  * Called by leaves to return handling to the standard/navigation model
  */
-func (m *Model) Return() {
+func (m *Mother) Return() {
 	m.mode = returning
 }
 
 //#region tea interface
 
-func (m Model) Init() tea.Cmd {
+func (m Mother) Init() tea.Cmd {
 	return textinput.Blink
 }
 
@@ -112,7 +130,7 @@ func (m Model) Init() tea.Cmd {
  * Keystroke commands (ex: F1, CTRL+C) are handled here.
  * Input commands (ex: 'help', 'quit', <command>) are handled in processInput(),
  * be they built-in or local commands */
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Mother) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// always handle kill keys
 	keyMsg, isKeyMsg := msg.(tea.KeyMsg)
@@ -125,17 +143,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// check if child command is done
+	// check if child action is done
 	if m.mode == returning {
 		m.log.Println("Returning from command...")
 		// ensure we are in an active command
 		if m.activeCommand == nil {
-			panic("return message but no active command")
+			panic("return mode but no active command")
 		}
 		m.activeCommand = nil
 		m.mode = prompting
 	}
-	// allow child command to retain control if it exists
+	// allow child action to retain control if it exists
 	if m.activeCommand != nil && m.mode == handoff {
 		m.log.Printf("Handing off Update control to active command %s\n", m.activeCommand.Name())
 		return m.activeCommand.Update(&m, msg)
@@ -156,7 +174,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(tea.Quit, tea.Println("Bye"))
 		}
 		if msg.Type == tea.KeyF1 { // help
-			return m, m.curMenu.Children(m.ss)
+			return m, m.CmdContextHelp()
 		}
 		if msg.Type == tea.KeyEnter { // submit
 			m.log.Printf("User hit enter, parsing data '%v'\n", m.ti.Value())
@@ -178,7 +196,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m Model) View() string {
+func (m Mother) View() string {
 	// allow child command to retain control if it exists
 	if m.activeCommand != nil {
 		return m.activeCommand.View(&m)
@@ -190,7 +208,7 @@ func (m Model) View() string {
 	}
 
 	s := strings.Builder{}
-	s.WriteString(m.curMenu.Name + " " + m.ti.View()) // prompt
+	s.WriteString(m.PWD.Name() + " " + m.ti.View()) // prompt
 	if m.ti.Err != nil {
 		// write out previous error and clear it
 		s.WriteString("\n")
@@ -203,90 +221,101 @@ func (m Model) View() string {
 
 //#endregion
 
-type builtinFunc func(m *Model) tea.Cmd
-
-/**
- * Built in actions avaialble to all menus
- * command -> operator function
- */
-var builtin = map[string]builtinFunc{
-	"..":   navParent, // walk up a level
-	"help": help,
-	"quit": quit,
-	"exit": quit,
-}
-
 /**
  * processInput consumes and clears the text on the prompt, determining what action to take and modifying the model accordingly.
  * If we change directory, prints the new pwd above
  */
-func processInput(m *Model) tea.Cmd {
-	var s string = m.ti.Value()
-	m.ti.Validate(s)
+func processInput(m *Mother) tea.Cmd {
+	var given string = m.ti.Value()
+	m.ti.Validate(given)
 	if m.ti.Err != nil {
 		return nil
 	}
 	m.ti.Reset() // empty out the input
 	// check for a builtin command
-	builtinFunc, ok := builtin[s]
+	builtinFunc, ok := m.builtinActions[given]
 	if ok {
-		return builtinFunc(m)
+		return builtinFunc()
 	}
-	// if we do not find a built in, test for a submenu
-	m.log.Printf("Parsing for submenus (from: %+v)\n", m.curMenu.Submenus)
-	if submenu, ok := m.curMenu.Submenus[strings.ToLower(s)]; ok { // submenu
-		m.curMenu = &submenu
-		// TODO as well as printing pwd, also print the current contents of ti's buffer (before resetting)
-		// 	this should cause a terminal like appearance
-		return tea.Println(m.pwd())
+	// if we do not find a built in, test for a valid child
+	var child *cobra.Command = nil
+	for _, c := range m.PWD.Commands() {
+		m.log.Printf("Given '%s' =?= child '%s'", given, c.Name()) // DEBUG
+
+		if c.Name() == given { // match
+			m.log.Printf(" | true\n", given, c.Name()) // DEBUG
+			child = c
+			break
+		}
+		m.log.Printf("\n", given, c.Name()) // DEBUG
 	}
-	// test for command
-	m.log.Printf("Parsing for commands (from: %+v)\n", m.curMenu.Commands)
-	if command, ok := m.curMenu.Commands[strings.ToLower(s)]; ok { // command
-		// When a command is issued, set the model's active command
-		// While a command is set, the model will call its Update and View functions
-		// On completion, a command will set m.mode to returning
 
-		// TODO upgrade Help() to support command context by checking m.activeCommand
-		// Help() can automatically check for an active command and show the command's help field instead.
+	// check if we found a match
+	if child == nil {
+		// user request unhandlable
+		m.inputErr = fmt.Errorf("%s has no child '%s'", m.PWD.Name(), given)
+		return nil
+	}
 
-		m.log.Printf("Found local command %v\n", command.Name())
+	// split on action or nav
+	if isAction(child) {
+		// hand off control to child
+		m.log.Printf("Found local command %v\n", child.Name())
 		m.mode = handoff
 		// TODO each time a command is call, it should be instantiated fresh so
 		//	old data does not garble the new call
-		m.activeCommand = command
+		m.activeCommand = child
 		return nil
+	} else { // nav
+		// navigate to child
+		m.PWD = child
+		return m.CmdPWD()
 	}
-
-	// no child found
-	m.inputErr = fmt.Errorf("%s has no child '%+s'", m.curMenu.Name, s)
-	// TODO put this inputerr out via View
-	return nil
 }
 
-/**
- * Returns present working directory.
- */
-func (m *Model) pwd() string {
-	return m.curMenu.Path()
+/** Returns a tea.Println Cmd containing the context help for the command pointed to by PWD */
+func (m *Mother) CmdContextHelp() tea.Cmd {
+	return tea.Println("Help for " + m.PWD.Name())
+}
+
+/** Returns a tea.Println Cmd containing the path to the pwd */
+func (m *Mother) CmdPWD() tea.Cmd {
+	return tea.Println(m.PWD.CommandPath())
 }
 
 /* Using the current menu, navigate up one level */
-func navParent(m *Model) tea.Cmd {
-	if m.curMenu.Parent == nil { // if we are at root, do nothing
+func (m *Mother) navParent() tea.Cmd {
+	if m.PWD == m.root { // if we are at root, do nothing
 		return nil
 	}
-	// otherwise, set upward
-	m.curMenu = m.curMenu.Parent
-	return tea.Println(m.pwd())
-}
-
-/* Print context help for the current menu */
-func help(m *Model) tea.Cmd {
-	return m.curMenu.Children(m.ss)
+	// otherwise, step upward
+	m.PWD = m.PWD.Parent()
+	return m.CmdPWD()
 }
 
 /* Quit the program */
-func quit(m *Model) tea.Cmd {
+func (m *Mother) quit() tea.Cmd {
 	return tea.Sequence(tea.Println("Bye"), tea.Quit)
 }
+
+// #region helper subroutines
+
+/**
+ * Given a cobra.Command, returns whether it is an Action (and thus its .Run()
+ * can be called) or a Nav (and its .Run() would be redundant if we are already
+ * in interactive mode)
+ */
+func isAction(cmd *cobra.Command) bool {
+	if cmd == nil { // sanity check
+		panic("cmd cannot be nil!")
+	}
+	if cmd.ContainsGroup("action") {
+		return true
+	} else if cmd.ContainsGroup("nav") {
+		return false
+	} else { // sanity check
+		panic("cmd '" + cmd.Name() + "' is neither a nav nor an action!")
+	}
+}
+
+//#endregion
