@@ -14,6 +14,7 @@ package main
 
 import (
 	"simple_menus/mother"
+	"simple_menus/mother/action"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -25,7 +26,14 @@ import (
  */
 func generateTree() *cobra.Command {
 
+	x := &cobra.Command{}
+
 	r := &cobra.Command{}
+	x.AddCommand(r)
+	r2 := &action.Action{Command: cobra.Command{}}
+
+	x.AddCommand(r2)
+	x.AddCommand(&r2.Command)
 
 	/*
 		// generate the root of the tree

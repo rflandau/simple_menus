@@ -14,6 +14,7 @@ import (
 	"os"
 	"regexp"
 	"simple_menus/message"
+	"simple_menus/mother/action"
 	"simple_menus/style"
 	"strings"
 
@@ -30,9 +31,11 @@ const (
 	tiValidationString = `^[a-zA-Z\.]+$` // note the anchor wraps
 )
 
-// keys that kill the program in Update no matter other states
-var killKeys = [...]tea.KeyType{tea.KeyCtrlC, tea.KeyEsc}
+var killKeys = [...]tea.KeyType{tea.KeyCtrlC, tea.KeyEsc} // keys that kill the program in Update no matter its state
 var validationRgx = regexp.MustCompile(tiValidationString)
+
+// alias for clarity
+type nav = cobra.Command
 
 // the data representation of our front-end
 type Mother struct {
@@ -42,12 +45,12 @@ type Mother struct {
 	log            *log.Logger
 	mode           mode
 	ss             style.Sheet
-	activeCommand  *cobra.Command // nil unless mode == handoff
+	activeCommand  *action.Actor // nil unless mode == handoff
 	builtinActions map[string]func() tea.Cmd
 
 	// Cobra navigation
-	root *cobra.Command // graph root; unchanged after initialization
-	PWD  *cobra.Command // current command node; should always be a menu
+	root *nav // graph root; unchanged after initialization
+	PWD  *nav // current command node; should always be a menu
 }
 
 var _ tea.Model = Mother{} // compile-time interface check
