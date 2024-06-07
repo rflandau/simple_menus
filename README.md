@@ -1,3 +1,5 @@
+# This has been scrapped in favour of a new implemenation: [gwcli](https://github.com/rflandau/gwcli)
+
 # Gravwell CLI
 
 A reimplementation of the Gravwell CLI, built on the fantastic Bubble Tea and Cobra libraries.
